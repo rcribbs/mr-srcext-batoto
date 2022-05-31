@@ -225,34 +225,38 @@ export async function getChapter(chapterIdentifier) {
     let text = await response.text();
     // NOTE: This fuckin sucks
 
-    const serverRegex = /const server\s*=\s*"([^"]+)";/i;
-    const encryptionRegex = /const batojs\s*=\s*([^;]+);/i;
-    const imagesRegex = /const images\s*=\s*(\[[^\]]+\]);/i;
-    const imagesMatch = text.match(imagesRegex)[1];
-    const serverMatch = text.match(serverRegex)[1];
-    const encryptionKey = eval(text.match(encryptionRegex)[1]);
+    const batoWordRegex = /const batoWord\s*=\s*"([^"]+)";/i;
+    const batoPassRegex = /const batoPass\s*=\s*(?:\[\+\[\]\]\+)*([^;]+);/i;
+    const imagesRegex = /const imgHttpLis\s*=\s*(\[[^\]]+\]);/i;
+    const rawBatoPass = text.match(batoPassRegex)[1];
+    console.debug("Printing raw batoPass.", {
+        rawBatoPass
+    });
 
-    const imgsArray = JSON.parse(imagesMatch);
-    const server = JSON.parse(
+    console.debug("Evaling page JS.")
+    const imgHttpLis = eval(text.match(imagesRegex)[1]);
+
+    const batoPass = eval(rawBatoPass);
+    console.log("Evaling batoWord.");
+    const batoWord = text.match(batoWordRegex)[1];
+
+    console.debug("Finished pulling data from page.");
+
+    const imgWordLis = JSON.parse(
         CryptoJS.AES.decrypt(
-            serverMatch,
-            encryptionKey
+            batoWord,
+            batoPass,
         ).toString(CryptoJS.enc.Utf8)
     );
 
-    const pageUrls = imgsArray.map(url => (
-        `${server}/${url}`
+    console.debug("Gathered img information.", {
+        imgWordLis: imgWordLis.toString(),
+        imgHttpLis: imgHttpLis.toString(),
+    });
+
+    const pageUrls = imgHttpLis.map((url, i) => (
+        `${url}?${imgWordLis[i]}`
     ));
     
-    // const $ = cheerio.load(text);
-    // const elements = $("div#viewer div.item");
-    // const pageUrls = elements.map((_, elem) => {
-    //     const imgElem = $(elem).find("img.page-img");
-    //     console.log(`imgElem: ${imgElem}`);
-    //     const imgLink = imgElem.prop("src");
-    //     console.log(`imgLink: ${imgLink}`);
-    //     return imgLink;
-    // });
-
     return new ChapterData({ pageUrls: pageUrls });
 }
