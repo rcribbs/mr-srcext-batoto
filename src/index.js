@@ -1,52 +1,64 @@
+// @flow
+import "core-js/stable";
 import "core-js/features/url";
 
 const cheerio = require("cheerio");
 const CryptoJS = require("crypto-js");
 
 class ChapterListItem {
-    number = "";
+    number: string;
     // Number is the chapter number. Could be an actual number like "1" or could
     // be a special chapter like "EX" or "Omake".
     //
-    title = "";
+    title: string;
     // Name is the short title of the chapter.
     // 
-    description = "";
+    description: string;
     // Description is the longer description of the chapter. May be blank
     // depending on the way the website handles information about chapters.
     // 
-    identifier = "";
+    identifier: string;
     // Identifier is a source-specific identifier. Could be an id like "1234" or
     // anything that makes sense for this source. This identifier will be
     // provided in getChapter call as chapterIdentifier to retrieve the chapter
     // pages.
     // 
-    group = null
+    group: ?string
     // Optional: Scanalation group if one exists.
     // 
-    variant = null
+    variant: ?string
     // Optional: Set variant if there are multiple versions of the same chapter
     //           and group is not present or not enough to differintiate.
     //
-    created = null;
+    created: ?Date
     // Optional: Date created as a string if it exists.
 
-    created = null;
+    updated: ?Date
     // Optional: Date updated as a string if it exists.
 
-    published = null;
+    published: ?Date
     // Optional: Date of original chapter's publication as a string if it exists.
 
     constructor({
         number,
         identifier,
         title,
-        description = null,
+        description = "",
         group = null,
         variant = null,
         created = null,
         updated = null,
         published = null,
+    }: {
+        number: string,
+        identifier: string,
+        title: string,
+        description?: string,
+        group?: ?string,
+        variant?: ?string,
+        created?: ?Date,
+        updated?: ?Date,
+        published?: ?Date,
     }) {
         this.number = number;
         this.identifier = identifier;
@@ -61,61 +73,96 @@ class ChapterListItem {
 }
 
 class ChapterList {
-    chapters = [];
+    chapters: Array<ChapterListItem>;
     // Chapters contains all the chapters for a given manga series.
     //
 
-    constructor({ chapters }) {
+    constructor({ chapters }: { chapters: Array<ChapterListItem> }) {
         this.chapters = chapters;
     }
 }
 
-class ChapterData {
-    pageUrls = [];
-    // PageUrls contains all the page urls for the chapter.
 
-    constructor({ pageUrls }) {
-        this.pageUrls = pageUrls;
+type PageDataHandler = (string) => (string);
+
+class PageData {
+    version: string = "1.0.0"
+    highUrl: string
+    lowUrl: ?string
+    highHandler: ?PageDataHandler
+    lowHandler: ?PageDataHandler
+
+    constructor({
+        highUrl,
+        lowUrl = null,
+        highHandler = null,
+        lowHandler = null,
+    }: {
+        highUrl: string,
+        lowUrl?: ?string,
+        highHandler?: ?PageDataHandler,
+        lowHandler?: ?PageDataHandler,
+    }) {
+        this.highUrl = highUrl;
+        this.lowUrl = lowUrl;
+        this.highHandler = highHandler;
+        this.lowHandler = lowHandler;
+    }
+}
+
+class ChapterData {
+    version: string = "2.0.0"
+
+    pages: Array<PageData>
+
+    constructor({ pages }: { pages: Array<PageData> }) {
+        this.pages = pages
     }
 }
 
 class MangaSeries {
-    name = "";
+    name: string;
     // Name is the name of the manga series.
     // 
-    identifier = "";
+    identifier: string;
     // Identifier is the id or unique identifier for this manga series on this
     // source.
     // 
-    ranking = -1;
+    coverUrl: ?string;
+    // NOTE: Optional
+    // The coverUrl if one exists. Used to help users identify best matches.
+    ranking: number;
     // NOTE: Optional
     // Ranking is the a representation of the likelyhood of this result being
     // the correct match. 0 being the best match and Number.MAX_SAFE_INTEGER
     // being the worst match. All negative numbers will be treated as equal.
-    //
-    coverUrl = null;
-    // NOTE: Optional
-    // The coverUrl if one exists. Used to help users identify best matches.
+    // 
 
-    constructor({ name, identifier, ranking = -1, coverUrl = null }) {
+    constructor({
+        name,
+        identifier,
+        coverUrl = null,
+        ranking = -1,
+    }: {
+        name: string,
+        identifier: string,
+        coverUrl?: ?string,
+        ranking?: number,
+    }) {
         this.name = name;
         this.identifier = identifier;
-        this.ranking = ranking;
         this.coverUrl = coverUrl;
+        this.ranking = ranking;
     }
 }
 
 class MangaSeriesList {
-    results = [];
+    results: Array<MangaSeries> = [];
     // Results is the list of all MangaSeries objects which match this query in
     // a searchManga call.
 
-    constructor({ results = [] }) {
+    constructor({ results = [] }: { results: Array<MangaSeries> }) {
         this.results = results;
-    }
-
-    addResult({ name, identifier, ranking = -1 }) {
-        this.results.push(MangaSeries({ name, identifier }));
     }
 }
 
@@ -140,12 +187,12 @@ export async function searchManga(seriesName, offset=0, limit=10) {
 
     const results = elements.map((i, result) => {
         const title = $(result).find("a.item-title");
-        console.log(`title: ${title}`);
+        console.debug(`title: ${title}`);
         const cleanedTitle = title.text().replace(/\s+/g, " ").replace(/&amp;/g, "&").trim();
         console.log(`cleanedTitle: ${cleanedTitle}`);
         const url = title.attr("href");
         const id = url.match(idRegex)[1];
-        console.log(`id: ${id}`);
+        console.debug(`id: ${id}`);
 
         const coverElem = $(result).find("a.item-cover > img")
         const coverUrl = coverElem.attr("src");
@@ -156,7 +203,7 @@ export async function searchManga(seriesName, offset=0, limit=10) {
             ranking: i,
             coverUrl: coverUrl
         });
-        console.log(newSeries);
+        console.debug(newSeries);
         return newSeries;
     });
 
@@ -227,7 +274,7 @@ export async function getChapter(chapterIdentifier) {
 
     const batoWordRegex = /const batoWord\s*=\s*"([^"]+)";/i;
     const batoPassRegex = /const batoPass\s*=\s*(?:\[\+\[\]\]\+)*([^;]+);/i;
-    const imagesRegex = /const imgHttpLis\s*=\s*(\[[^\]]+\]);/i;
+    const imagesRegex = /const imgHttps\s*=\s*(\[[^\]]+\]);/i;
     const rawBatoPass = text.match(batoPassRegex)[1];
     console.debug("Printing raw batoPass.", {
         rawBatoPass
@@ -237,7 +284,7 @@ export async function getChapter(chapterIdentifier) {
     const imgHttpLis = eval(text.match(imagesRegex)[1]);
 
     const batoPass = eval(rawBatoPass);
-    console.log("Evaling batoWord.");
+    console.debug("Evaling batoWord.");
     const batoWord = text.match(batoWordRegex)[1];
 
     console.debug("Finished pulling data from page.");
@@ -246,17 +293,19 @@ export async function getChapter(chapterIdentifier) {
         CryptoJS.AES.decrypt(
             batoWord,
             batoPass,
-        ).toString(CryptoJS.enc.Utf8)
+        ).toString(
+            CryptoJS.enc.Utf8
+        )
     );
 
     console.debug("Gathered img information.", {
-        imgWordLis: imgWordLis.toString(),
-        imgHttpLis: imgHttpLis.toString(),
+        imgWordLis: imgWordLis,
+        imgHttpLis: imgHttpLis,
     });
 
-    const pageUrls = imgHttpLis.map((url, i) => (
-        `${url}?${imgWordLis[i]}`
+    const pages = imgHttpLis.map((url, i) => (
+        new PageData({ highUrl: `${url}?${imgWordLis[i]}` })
     ));
     
-    return new ChapterData({ pageUrls: pageUrls });
+    return new ChapterData({ pages });
 }

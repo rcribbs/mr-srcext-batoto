@@ -1,3 +1,12 @@
-name = "Bato.To"
-version = "1.1.1"
-author = "Rohan Cribbs"
+mangaright = "1.0.0"
+
+[plugin]
+id = "6bbba1ba-258c-11ec-831b-784f43a622c7"
+
+[plugin.name]
+primary = "Bato.To"
+aliases = ["batoto"]
+
+[plugin.general]
+version = "2.0.0"
+author = "rcribbs"
