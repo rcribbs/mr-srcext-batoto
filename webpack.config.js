@@ -1,4 +1,5 @@
 const TerserPlugin = require("terser-webpack-plugin");
+const NodePolyfillPlugin = require("node-polyfill-webpack-plugin")
 
 module.exports = (env) => ({
     entry: ["./src/index.js"],
@@ -35,4 +36,21 @@ module.exports = (env) => ({
             }),
         ],
     },
+    plugins: [
+        new NodePolyfillPlugin()
+    ],
+    resolve: {
+        fallback: {
+            "fs": false,
+            "tls": false,
+            "net": false,
+            "path": false,
+            "zlib": false,
+            "http": false,
+            "https": false,
+            "stream": false,
+            "crypto": false,
+            "crypto-browserify": require.resolve('crypto-browserify'),
+        },
+    }
 });

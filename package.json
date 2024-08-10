@@ -15,8 +15,8 @@
   "devDependencies": {
     "@babel/polyfill": "^7.12.1",
     "@babel/preset-flow": "^7.23.3",
-    "webpack-cli": "^5.1.4",
-    "flow-bin": "*"
+    "flow-bin": "*",
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
     "@babel/preset-env": "^7.23.9",
@@ -24,6 +24,8 @@
     "babel-plugin-named-asset-import": "^0.3.8",
     "cheerio": "latest",
     "core-js": "latest",
-    "crypto-js": "latest"
+    "crypto-browserify": "^3.12.0",
+    "crypto-js": "3.1.9-1",
+    "node-polyfill-webpack-plugin": "^4.0.0"
   }
 }

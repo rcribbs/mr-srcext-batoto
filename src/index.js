@@ -338,7 +338,7 @@ export async function getChapter(chapterIdentifier: string): Promise<ChapterData
     if (!matches || matches.length <= 1) {
         throw Error("Failed to get data (batoWord) for page.");
     }
-    const batoWord = [1];
+    const batoWord = matches[1];
 
     console.debug("Finished pulling data from page.");
 
