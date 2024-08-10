@@ -8,5 +8,5 @@ primary = "Bato.To"
 aliases = ["batoto"]
 
 [plugin.general]
-version = "2.1.1"
+version = "2.1.2"
 author = "rcribbs"
