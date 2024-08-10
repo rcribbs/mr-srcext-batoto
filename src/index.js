@@ -166,55 +166,94 @@ class MangaSeriesList {
     }
 }
 
-export let EXTENSION_ID="6bbba1ba-258c-11ec-831b-784f43a622c7";
+export let EXTENSION_ID: string="6bbba1ba-258c-11ec-831b-784f43a622c7";
 
-export async function searchManga(seriesName, offset=0, limit=10) {
-    console.debug("searchManga called.");
-    let finalUrl = new URL("https://bato.to/search");
-    console.debug("Initialized url.", { url: finalUrl });
-    let searchParams = new URLSearchParams({
-        word: seriesName,
-    });
-    finalUrl.search = searchParams.toString();
-    console.debug("Added search params.", { url: finalUrl });
-
-    const response = await fetch(finalUrl);
-    const text = await response.text();
-
-    const $ = cheerio.load(text);
+function parsePage($): Array<MangaSeries> {
     const elements = $("div#series-list div.col.no-flag");
     const idRegex = /\/series\/(?<id>\d+)\/[^\/]*/;
 
-    const results = elements.map((i, result) => {
+    const results: Array<?MangaSeries> = elements.map((i, result) => {
         const title = $(result).find("a.item-title");
         console.debug(`title: ${title}`);
         const cleanedTitle = title.text().replace(/\s+/g, " ").replace(/&amp;/g, "&").trim();
         console.log(`cleanedTitle: ${cleanedTitle}`);
         const url = title.attr("href");
-        const id = url.match(idRegex)[1];
+        const idMatch = url.match(idRegex);
+        if (!idMatch || idMatch.length <= 1) {
+            return null;
+        }
+        const id = idMatch[1];
         console.debug(`id: ${id}`);
 
         const coverElem = $(result).find("a.item-cover > img")
         const coverUrl = coverElem.attr("src");
 
         const newSeries = new MangaSeries({
-            identifier: id,
-            name: cleanedTitle,
+            identifier: id.toString(),
+            name: cleanedTitle.toString(),
             ranking: i,
-            coverUrl: coverUrl
+            coverUrl: coverUrl.toString()
         });
         console.debug(newSeries);
         return newSeries;
-    });
+    }).toArray();
+
+    const finalResults: Array<MangaSeries> = results.filter(Boolean);
+
+    return finalResults;
+}
+
+export async function searchManga(seriesName: string, offset: number=0, limit: number =10): Promise<MangaSeriesList> {
+    console.debug("searchManga called.");
+    let baseUrl = new URL("https://bato.to/search");
+
+    let totalPages: ?number = null;
+    let pageNumber = 1;
+    let allResults: Array<MangaSeries> = [];
+
+    do {
+        let currentUrl = baseUrl;
+        console.debug("Initialized url.", { url: currentUrl });
+        let searchParams = new URLSearchParams({
+            word: seriesName,
+            page: pageNumber.toString(),
+        });
+        currentUrl.search = searchParams.toString();
+        console.debug("Added search params.", { url: currentUrl });
+
+        const response = await fetch(currentUrl);
+        const text = await response.text();
+
+        const cheerioData = cheerio.load(text);
+
+        if (totalPages == null) {
+            // -2 here because the page links include the
+            // "back and forward" buttons.
+            // 
+            totalPages = Math.max(cheerioData(".page-link").length - 2, 1);
+        }
+
+        const newResults: Array<MangaSeries> = parsePage(cheerioData);
+        console.log("Processed page of results.", { pageNumber, result_count: newResults.length });
+        console.debug("Found series on page.", { newResults });
+        allResults = allResults.concat(newResults);
+        pageNumber += 1;
+    } while (pageNumber < (totalPages + 1))
+
+    console.log("Parsed all pages of search results.", { results_found: allResults.length });
 
     return new MangaSeriesList({
-        results: results,
-    })
+        results: allResults,
+    });
 }
 
 export async function listChapters(
-    seriesIdentifier, offset=0, limit=500, since=null, order='asc'
-) {
+    seriesIdentifier: string,
+    offset: number=0,
+    limit: number=500,
+    since: ?Date=null,
+    order: string='asc'
+): Promise<ChapterList> {
     const finalUrl = new URL(`https://bato.to/series/${seriesIdentifier}`);
 
     const response = await fetch(finalUrl);
@@ -263,7 +302,7 @@ export async function listChapters(
     return chapList;
 }
 
-export async function getChapter(chapterIdentifier) {
+export async function getChapter(chapterIdentifier: string): Promise<ChapterData> {
     // TODO: implement get chapter logic here.
 
     let response = await fetch(
@@ -275,17 +314,31 @@ export async function getChapter(chapterIdentifier) {
     const batoWordRegex = /const batoWord\s*=\s*"([^"]+)";/i;
     const batoPassRegex = /const batoPass\s*=\s*(?:\[\+\[\]\]\+)*([^;]+);/i;
     const imagesRegex = /const imgHttps\s*=\s*(\[[^\]]+\]);/i;
-    const rawBatoPass = text.match(batoPassRegex)[1];
+    let matches = text.match(batoPassRegex);
+    if (!matches || matches.length <= 1) {
+        throw Error("Failed to get decryption code for page.");
+    }
+
+    const rawBatoPass = matches[1];
     console.debug("Printing raw batoPass.", {
         rawBatoPass
     });
 
     console.debug("Evaling page JS.")
-    const imgHttpLis = eval(text.match(imagesRegex)[1]);
+    matches = text.match(imagesRegex);
+    if (!matches || matches.length <= 1) {
+        throw Error("Failed to get images for page.");
+    }
+    const imgHttpLis = eval(matches[1]);
 
     const batoPass = eval(rawBatoPass);
     console.debug("Evaling batoWord.");
-    const batoWord = text.match(batoWordRegex)[1];
+
+    matches = text.match(batoWordRegex);
+    if (!matches || matches.length <= 1) {
+        throw Error("Failed to get data (batoWord) for page.");
+    }
+    const batoWord = [1];
 
     console.debug("Finished pulling data from page.");
 

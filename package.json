@@ -9,13 +9,14 @@
   "scripts": {
     "build": "npx webpack",
     "build-dev": "npx webpack --env development",
-    "flow": "npx flow",
+    "flow": "npx flow-bin",
     "lint": "eslint ./src"
   },
   "devDependencies": {
     "@babel/polyfill": "^7.12.1",
     "@babel/preset-flow": "^7.23.3",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "flow-bin": "*"
   },
   "dependencies": {
     "@babel/preset-env": "^7.23.9",
